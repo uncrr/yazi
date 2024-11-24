@@ -62,6 +62,36 @@ impl File {
 		Self { cha: Cha::from(meta).with_kind(ck), url, link_to, icon: Default::default() }
 	}
 
+	pub fn from_meta2(url: Url, mut meta: Metadata) -> Self {
+		let mut ck = ChaKind::empty();
+		let (is_link, mut link_to) = (meta.is_symlink(), None);
+
+		if is_link {
+			meta = std::fs::metadata(&url).unwrap_or(meta);
+			link_to = std::fs::read_link(&url).map(Url::from).ok();
+		}
+
+		if is_link && meta.is_symlink() {
+			ck |= ChaKind::ORPHAN;
+		} else if is_link {
+			ck |= ChaKind::LINK;
+		}
+
+		#[cfg(unix)]
+		if url.is_hidden() {
+			ck |= ChaKind::HIDDEN;
+		}
+		#[cfg(windows)]
+		{
+			use std::os::windows::fs::MetadataExt;
+			if meta.file_attributes() & 2 != 0 {
+				ck |= ChaKind::HIDDEN;
+			}
+		}
+
+		Self { cha: Cha::from(meta).with_kind(ck), url, link_to, icon: Default::default() }
+	}
+
 	#[inline]
 	pub fn from_dummy(url: Url, ft: Option<FileType>) -> Self {
 		Self { cha: ft.map_or_else(Cha::dummy, Cha::from), url: url.to_owned(), ..Default::default() }

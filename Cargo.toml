@@ -4,10 +4,10 @@ members         = [ "yazi-*" ]
 default-members = [ "yazi-fm", "yazi-cli" ]
 
 [profile.release]
-codegen-units = 1
-lto           = true
-panic         = "abort"
-strip         = true
+# codegen-units = 1
+# lto           = true
+# panic         = "abort"
+# strip         = true
 
 [workspace.dependencies]
 ansi-to-tui   = "6.0.0"

@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, mem, ops::Deref, sync::atomic::Ordering};
 
-use tokio::{fs::{self, DirEntry}, select, sync::mpsc::{self, UnboundedReceiver}};
+use tokio::{fs::{self}, select, sync::mpsc::{self, UnboundedReceiver}};
 use yazi_config::{manager::SortBy, MANAGER};
 use yazi_shared::fs::{maybe_exists, Cha, File, FilesOp, Url, FILES_TICKET};
 
@@ -67,28 +67,41 @@ impl Files {
 	}
 
 	pub async fn from_dir_bulk(url: &Url) -> std::io::Result<Vec<File>> {
-		let mut it = fs::read_dir(url).await?;
-		let mut items = Vec::with_capacity(5000);
-		while let Ok(Some(item)) = it.next_entry().await {
-			items.push(item);
+		async fn go(entities: Vec<std::fs::DirEntry>) -> Vec<File> {
+			tokio::task::spawn_blocking(move || {
+				let mut files = Vec::with_capacity(entities.len());
+				for entry in entities {
+					let url = Url::from(entry.path());
+					files.push(match entry.metadata() {
+						Ok(meta) => File::from_meta2(url, meta),
+						Err(_) => File::from_dummy(url, entry.file_type().ok()),
+					});
+				}
+				files
+			})
+			.await
+			.unwrap()
 		}
 
-		let (first, rest) = items.split_at(items.len() / 3);
-		let (second, third) = rest.split_at(items.len() / 3);
-		async fn go(entities: &[DirEntry]) -> Vec<File> {
-			let mut files = Vec::with_capacity(entities.len() / 3 + 1);
-			for entry in entities {
-				let url = Url::from(entry.path());
-				files.push(match entry.metadata().await {
-					Ok(meta) => File::from_meta(url, meta).await,
-					Err(_) => File::from_dummy(url, entry.file_type().await.ok()),
-				});
+		let url = url.clone();
+		let mut items = tokio::task::spawn_blocking(move || {
+			let mut it = std::fs::read_dir(&url)?;
+			let mut items = Vec::with_capacity(5000);
+			while let Some(Ok(item)) = it.next() {
+				items.push(item);
 			}
-			files
-		}
+
+			Ok::<_, std::io::Error>(items)
+		})
+		.await??;
+
+		let chunk = items.len() / 3;
+		let part3: Vec<_> = items.drain((2 * chunk)..).collect();
+		let part2: Vec<_> = items.drain(chunk..).collect();
+		let part1 = items;
 
 		Ok(
-			futures::future::join_all([go(first), go(second), go(third)])
+			futures::future::join_all([go(part1), go(part2), go(part3)])
 				.await
 				.into_iter()
 				.flatten()

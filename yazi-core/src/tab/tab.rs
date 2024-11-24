@@ -114,7 +114,7 @@ impl Tab {
 
 			// The parent should always track the CWD
 			parent.hover(&self.current.cwd);
-			parent.tracing = parent.hovered().map(|h| &h.url) == Some(&self.current.cwd);
+			parent.tracing = parent.hovered().is_some_and(|h| h.url == self.current.cwd);
 		}
 
 		self
