@@ -23,20 +23,19 @@ impl Deref for Url {
 
 impl Debug for Url {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match &self.scheme {
-			Scheme::Regular => write!(f, "{}{}", self.scheme, self.loc.display()),
-			Scheme::Search => write!(f, "{}{}#{}", self.scheme, self.loc.display(), self.frag.display()),
-			Scheme::SearchItem => write!(f, "{}{}", self.scheme, self.loc.display()),
-			Scheme::Archive => write!(f, "{}{}", self.scheme, self.loc.display()),
-			Scheme::Sftp(_) => {
-				write!(f, "{}{}", self.scheme, self.loc.display())
-			}
+		let Self { scheme, loc, frag } = self;
+		match scheme {
+			Scheme::Regular => write!(f, "{scheme}{}", loc.display()),
+			Scheme::Search => write!(f, "{scheme}{}#{}", loc.display(), frag.display()),
+			Scheme::SearchItem => write!(f, "{scheme}{}", loc.display()),
+			Scheme::Archive => write!(f, "{scheme}{}", loc.display()),
+			Scheme::Sftp(_) => write!(f, "{scheme}{}", loc.display()),
 		}
 	}
 }
 
 impl From<Loc> for Url {
-	fn from(loc: Loc) -> Self { Self { loc, ..Default::default() } }
+	fn from(loc: Loc) -> Self { Self { loc, scheme: Scheme::Regular, frag: OsString::new() } }
 }
 
 impl From<PathBuf> for Url {
@@ -48,7 +47,7 @@ impl From<&PathBuf> for Url {
 }
 
 impl From<&Path> for Url {
-	fn from(path: &Path) -> Self { path.to_owned().into() }
+	fn from(path: &Path) -> Self { path.to_path_buf().into() }
 }
 
 impl TryFrom<&[u8]> for Url {
@@ -59,7 +58,7 @@ impl TryFrom<&[u8]> for Url {
 		let rest = &bytes[skip..];
 
 		if scheme == Scheme::Regular {
-			return Ok(Self { loc: Loc::from(rest.into_os_str()?), scheme, ..Default::default() });
+			return Ok(Self { loc: rest.into_os_str()?.into(), scheme, frag: OsString::new() });
 		}
 
 		let (loc, frag) = match rest.split_by_seq(b"#") {
@@ -67,7 +66,7 @@ impl TryFrom<&[u8]> for Url {
 			Some((a, b)) => (a, b.into_os_str()?.into_owned()),
 		};
 
-		Ok(Url { loc: Loc::from(Cow::from(percent_decode(loc)).into_os_str()?), scheme, frag })
+		Ok(Url { loc: Cow::from(percent_decode(loc)).into_os_str()?.into(), scheme, frag })
 	}
 }
 
@@ -225,7 +224,9 @@ impl Url {
 	pub fn is_regular(&self) -> bool { self.scheme == Scheme::Regular }
 
 	#[inline]
-	pub fn to_regular(&self) -> Self { Self { loc: self.loc.clone(), ..Default::default() } }
+	pub fn to_regular(&self) -> Self {
+		Self { loc: self.loc.clone(), scheme: Scheme::Regular, frag: OsString::new() }
+	}
 
 	#[inline]
 	pub fn into_regular(mut self) -> Self {
