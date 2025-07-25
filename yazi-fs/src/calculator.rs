@@ -14,14 +14,14 @@ pub enum SizeCalculator {
 
 impl SizeCalculator {
 	pub async fn new(url: &Url) -> io::Result<Self> {
-		let url = url.to_owned();
+		let u = url.to_owned();
 		tokio::task::spawn_blocking(move || {
-			let meta = services::symlink_metadata_sync(&url)?;
+			let meta = services::symlink_metadata_sync(&u)?;
 			if !meta.is_dir() {
 				return Ok(Self::Idle((VecDeque::new(), Some(meta.len()))));
 			}
 
-			let mut buf = VecDeque::from([Either::Right(services::read_dir_sync(url)?)]);
+			let mut buf = VecDeque::from([Either::Right(services::read_dir_sync(u)?)]);
 			let size = Self::next_chunk(&mut buf);
 			Ok(Self::Idle((buf, size)))
 		})
