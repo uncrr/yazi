@@ -208,40 +208,36 @@ pub fn backslash_to_slash(p: &Path) -> Cow<'_, Path> {
 
 #[cfg(test)]
 mod tests {
+	use std::borrow::Cow;
+
 	use yazi_shared::url::Url;
 
 	use super::path_relative_to;
 
-	#[cfg(unix)]
 	#[test]
 	fn test_path_relative_to() {
-		fn assert(path: &str, root: &str, res: &str) {
-			use std::borrow::Cow;
-
+		fn assert(path: &str, root: &str, ret: &str) {
 			assert_eq!(
 				path_relative_to(&Url::try_from(path).unwrap(), &Url::try_from(root).unwrap()).unwrap(),
-				Cow::Owned(Url::try_from(res).unwrap())
+				Cow::Owned(Url::try_from(ret).unwrap())
 			);
 		}
 
-		assert("/a/b", "/a/b/c", "../");
-		assert("/a/b/c", "/a/b", "c");
-		assert("/a/b/c", "/a/b/d", "../c");
-		assert("/a", "/a/b/c", "../../");
-		assert("/a/a/b", "/a/b/b", "../../a/b");
-	}
-
-	#[cfg(windows)]
-	#[test]
-	fn test_path_relative_to() {
-		fn assert(path: &str, root: &str, res: &str) {
-			assert_eq!(path_relative_to(Path::new(path), Path::new(root)), Cow::Borrowed(Path::new(res)));
+		#[cfg(unix)]
+		{
+			assert("/a/b", "/a/b/c", "../");
+			assert("/a/b/c", "/a/b", "c");
+			assert("/a/b/c", "/a/b/d", "../c");
+			assert("/a", "/a/b/c", "../../");
+			assert("/a/a/b", "/a/b/b", "../../a/b");
 		}
-
-		assert("C:\\a\\b", "C:\\a\\b\\c", "..\\");
-		assert("C:\\a\\b\\c", "C:\\a\\b", "c");
-		assert("C:\\a\\b\\c", "C:\\a\\b\\d", "..\\c");
-		assert("C:\\a", "C:\\a\\b\\c", "..\\..\\");
-		assert("C:\\a\\a\\b", "C:\\a\\b\\b", "..\\..\\a\\b");
+		#[cfg(windows)]
+		{
+			assert(r"C:\a\b", r"C:\a\b\c", r"..\");
+			assert(r"C:\a\b\c", r"C:\a\b", "c");
+			assert(r"C:\a\b\c", r"C:\a\b\d", r"..\c");
+			assert(r"C:\a", r"C:\a\b\c", r"..\..\");
+			assert(r"C:\a\a\b", r"C:\a\b\b", r"..\..\a\b");
+		}
 	}
 }
