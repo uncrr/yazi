@@ -146,9 +146,9 @@ async fn _unique_name(mut url: Url, append: bool) -> io::Result<Url> {
 //   `path` and `root` are both under different disk drives.
 pub fn path_relative_to<'a>(url: &'a Url, root: &Url) -> Result<Cow<'a, Url>> {
 	if !url.is_regular() || !root.is_regular() {
-		bail!("Both paths must be local files: {:?} and {:?}", url, root);
+		bail!("Both urls must be local files: {:?} and {:?}", url, root);
 	} else if !url.is_absolute() || !root.is_absolute() {
-		bail!("Both paths must be absolute: {:?} and {:?}", url, root);
+		bail!("Both urls must be absolute: {:?} and {:?}", url, root);
 	}
 
 	let mut p_comps = url.components();
